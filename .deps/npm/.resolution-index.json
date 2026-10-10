@@ -1,0 +1,10 @@
+{
+  "documentverification.sol": {
+    "__sources__": {
+      "documentverification.sol": {
+        "content": "\r\n // SPDX-License-Identifier: MIT\r\n pragma solidity ^0.8.20;\r\n\r\n contract DocumentVerification {\r\n     struct Document {\r\n         string cid;\r\n         bytes32 fileHash;\r\n         address uploader;\r\n         uint256 timestamp;\r\n         bool exists;\r\n     }\r\n\r\n     mapping(bytes32 => Document) private documents;\r\n\r\n     event DocumentRegistered(\r\n         bytes32 indexed fileHash,\r\n         string cid,\r\n         address indexed uploader\r\n     );\r\n\r\n     function registerDocument(\r\n         string calldata _cid,\r\n         bytes32 _fileHash\r\n     ) external {\r\n         require(bytes(_cid).length > 0, \"CID cannot be empty\");\r\n         require(_fileHash != bytes32(0), \"Invalid file hash\");\r\n         require(!documents[_fileHash].exists, \"Already registered\");\r\n\r\n         documents[_fileHash] = Document({\r\n             cid: _cid,\r\n             fileHash: _fileHash,\r\n             uploader: msg.sender,\r\n             timestamp: block.timestamp,\r\n             exists: true\r\n         });\r\n\r\n         emit DocumentRegistered(_fileHash, _cid, msg.sender);\r\n     }\r\n\r\n     function getDocument(\r\n         bytes32 _fileHash\r\n     )\r\n         external\r\n         view\r\n         returns (\r\n             string memory cid,\r\n             address uploader,\r\n             uint256 timestamp,\r\n             bool exists\r\n         )\r\n     {\r\n         Document storage doc = documents[_fileHash];\r\n\r\n         return (\r\n             doc.cid,\r\n             doc.uploader,\r\n             doc.timestamp,\r\n             doc.exists\r\n         );\r\n     }\r\n\r\n     function verifyDocument(\r\n         bytes32 _fileHash\r\n     ) external view returns (bool) {\r\n         return documents[_fileHash].exists;\r\n     }\r\n }\r\n\r\n\r\n//bafkreiensn45n2flc3t5coyyqa3vt3zrh3pjw6fdwjuooizk6wxj6ti4hu\r\n\r\n//0x8D9379D6E8AB16E7D13B18803759EF313EDE9B78A3B268E7232AF5AE9F4D1C3D",
+        "file": "documentverification.sol"
+      }
+    }
+  }
+}
