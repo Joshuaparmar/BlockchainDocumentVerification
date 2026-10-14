@@ -50,6 +50,19 @@ function App() {
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState("");
+  const [historySearch, setHistorySearch] = useState("");
+
+  const filteredHistory = history.filter((record) => {
+  const query = historySearch.trim().toLowerCase();
+
+  if (!query) return true;
+
+  return (
+    record.fileHash?.toLowerCase().includes(query) ||
+    record.cid?.toLowerCase().includes(query) ||
+    record.uploader?.toLowerCase().includes(query)
+  );
+});
 
   function showStatus(type, message) {
     setStatus({ type, message });
@@ -209,6 +222,8 @@ function App() {
         duplicate: false,
       });
 
+      await loadHistory();
+
       showStatus(
         "success",
         "Document uploaded to IPFS and registered on the blockchain."
@@ -296,41 +311,50 @@ function App() {
   }
 
   
-  async function loadHistory() {
-    setHistoryLoading(true);
-    setHistoryError("");
 
-    try {
-      const contract = await getContract(false);
-      const provider = new BrowserProvider(window.ethereum);
-      const latestBlock = await provider.getBlockNumber();
+async function loadHistory() {
+  setHistoryLoading(true);
+  setHistoryError("");
 
-      const events = await contract.queryFilter(
-        contract.filters.DocumentRegistered(),
-        0,
-        latestBlock
-      );
+  try {
+    const contract = await getContract(false);
+    const provider = new BrowserProvider(window.ethereum);
+    const latestBlock = await provider.getBlockNumber();
 
-      const records = events.map((event) => ({
-        fileHash: event.args.fileHash,
-        cid: event.args.cid,
-        uploader: event.args.uploader,
-        transactionHash: event.transactionHash,
-        blockNumber: event.blockNumber,
-      })).reverse();
+    const events = await contract.queryFilter(
+      contract.filters.DocumentRegistered(),
+      0,
+      latestBlock
+    );
 
-      setHistory(records);
-    } catch (error) {
-      console.error("History loading failed:", error);
-      setHistoryError(
-        error.shortMessage ||
-          error.message ||
-          "Could not load document history."
-      );
-    } finally {
-      setHistoryLoading(false);
-    }
+    const records = await Promise.all(
+      events.map(async (event) => {
+        const block = await provider.getBlock(event.blockNumber);
+
+        return {
+          fileHash: event.args.fileHash,
+          cid: event.args.cid,
+          uploader: event.args.uploader,
+          transactionHash: event.transactionHash,
+          blockNumber: event.blockNumber,
+          timestamp: block ? Number(block.timestamp) * 1000 : null,
+        };
+      })
+    );
+
+    setHistory(records.reverse());
+  } catch (error) {
+    console.error("History loading failed:", error);
+    setHistoryError(
+      error.shortMessage ||
+        error.message ||
+        "Could not load document history."
+    );
+  } finally {
+    setHistoryLoading(false);
   }
+}
+
 
 
   function handleFileChange(event, type) {
@@ -770,6 +794,27 @@ function App() {
             </button>
           </div>
 
+          
+          <div className="history-search">
+            <input
+              type="text"
+              placeholder="Search by SHA-256 hash, IPFS CID, or uploader address..."
+              value={historySearch}
+              onChange={(e) => setHistorySearch(e.target.value)}
+              aria-label="Search document history"
+            />
+            {historySearch && (
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setHistorySearch("")}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+
           {historyError && (
             <p role="alert" className="history-error">
               {historyError}
@@ -779,9 +824,15 @@ function App() {
           {!historyError && history.length === 0 && !historyLoading && (
             <p>No records loaded. Click "Load History" to retrieve registrations.</p>
           )}
+          {!historyError &&
+            !historyLoading &&
+            history.length > 0 &&
+            filteredHistory.length === 0 && (
+              <p>No documents match your search. Try another hash, CID, or uploader address.</p>
+          )}
 
           <div className="history-list">
-            {history.map((record, index) => (
+            {filteredHistory.map((record, index) => (
               <article
                 className="history-card"
                 key={record.transactionHash}
@@ -797,10 +848,28 @@ function App() {
                 <p><strong>Uploader</strong></p>
                 <code>{record.uploader}</code>
 
+                
                 <p><strong>Block:</strong> {record.blockNumber}</p>
 
+                <p>
+                  <strong>Registered:</strong>{" "}
+                  {record.timestamp
+                    ? new Date(record.timestamp).toLocaleString()
+                    : "Timestamp unavailable"}
+                </p>
+
+
+                
+                
                 <p><strong>Transaction</strong></p>
                 <code>{record.transactionHash}</code>
+                <p>
+                  <span title="This transaction was recorded on your local Hardhat blockchain.">
+                    Local Hardhat transaction
+                  </span>
+                </p>
+
+
 
                 <p>
                   <a
