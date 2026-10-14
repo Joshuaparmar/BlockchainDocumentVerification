@@ -1,0 +1,13 @@
+/* Global resets and typography are defined in App.css. */
+html {
+  min-width: 320px;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+}
+
+#root {
+  min-height: 100vh;
+}
